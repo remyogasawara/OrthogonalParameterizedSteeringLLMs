@@ -1,0 +1,30 @@
+Could not find platform independent libraries <prefix>
+Python path configuration:
+  PYTHONHOME = (not set)
+  PYTHONPATH = (not set)
+  program name = 'python'
+  isolated = 0
+  environment = 1
+  user site = 1
+  safe_path = 0
+  import site = 1
+  is in build tree = 0
+  stdlib dir = '/scratch/general/vast/u1591141/conda/envs/steering/lib/python3.11'
+  sys._base_executable = '/scratch/general/vast/u1591141/conda/envs/steering/bin/python'
+  sys.base_prefix = '/scratch/general/vast/u1591141/conda/envs/steering'
+  sys.base_exec_prefix = '/scratch/general/vast/u1591141/conda/envs/steering'
+  sys.platlibdir = 'lib'
+  sys.executable = '/scratch/general/vast/u1591141/conda/envs/steering/bin/python'
+  sys.prefix = '/scratch/general/vast/u1591141/conda/envs/steering'
+  sys.exec_prefix = '/scratch/general/vast/u1591141/conda/envs/steering'
+  sys.path = [
+    '/scratch/general/vast/u1591141/conda/envs/steering/lib/python311.zip',
+    '/scratch/general/vast/u1591141/conda/envs/steering/lib/python3.11',
+    '/scratch/general/vast/u1591141/conda/envs/steering/lib/python3.11/lib-dynload',
+  ]
+Fatal Python error: init_fs_encoding: failed to get the Python codec of the filesystem encoding
+Python runtime state: core initialized
+LookupError: no codec search functions registered: can't find encoding
+
+Current thread 0x0000155533a52400 (most recent call first):
+  <no Python frame>

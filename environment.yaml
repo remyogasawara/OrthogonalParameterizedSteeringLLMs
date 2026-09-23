@@ -1,0 +1,40 @@
+name: steering
+channels:
+  - pytorch
+  - nvidia
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.11.14
+  - pip
+
+  # PyTorch — install via pytorch channel for correct CUDA binaries
+  # Change cu121 to match your CUDA version (e.g. cu118, cu124)
+  - pytorch::pytorch>=2.3.0
+  - pytorch::pytorch-cuda=12.1
+
+  # Core scientific stack
+  - numpy>=1.24.0,<2.0.0
+  - scipy>=1.11.0
+  - scikit-learn>=1.3.0
+  - pandas>=2.0.0
+  - matplotlib>=3.7.0
+
+  - pip:
+    # HuggingFace
+    - transformers>=4.45.0       # 4.45+ required for Llama 3.2
+    - accelerate>=0.30.0         # required for device_map="auto"
+    - datasets>=2.20.0
+    - huggingface-hub>=0.24.0
+
+    # Visualisation
+    - plotly>=5.15.0
+
+    # Robust estimators
+    - cvxpy>=1.4.0
+
+    # OpenAI judge evals
+    - openai>=1.0.0
+
+    # Utilities
+    - tqdm>=4.65.0
