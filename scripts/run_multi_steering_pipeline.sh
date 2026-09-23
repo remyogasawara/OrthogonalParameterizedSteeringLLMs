@@ -36,7 +36,7 @@ DATASET_SUBFOLDER="tan_paper_datasets/mwe/xrisk"
 BEHAVIORS=(coordinate-other-ais corrigible-neutral-HHH myopic-reward survival-instinct power-seeking-inclination wealth-seeking-inclination)
 TEST_BEHAVIOR1=coordinate-other-ais
 TEST_BEHAVIOR2=power-seeking-inclination
-
+TARGET_CLASSES=("$TEST_BEHAVIOR1" "$TEST_BEHAVIOR2")
 
 ACTIVATIONS_NAME="${MODEL_NAME}_$(IFS=_; echo "${BEHAVIORS[*]}")"
 ALPHA_TRAIN_NAME="${MODEL_NAME}_$(IFS=_; echo "${BEHAVIORS[*]}_alpha-iterative_training_experiment_large_intervals")"
