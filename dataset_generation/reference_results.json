@@ -1,0 +1,16 @@
+{
+  "data_sha256": "112395b9fe0bffb8ac09f95dd180bb64ba82bf7a5c0f34df152f20f65fdbd5e4",
+  "classification_accuracy": {
+    "tfidf": {"three_class": 0.7434, "five_class": 0.5606},
+    "word_count": {"three_class": 0.4832, "five_class": 0.236},
+    "surface_seven": {"three_class": 0.6558, "five_class": 0.4306},
+    "modernbert_pca128": {"three_class": 0.718, "five_class": 0.5398},
+    "modernbert_full768": {"three_class": 0.724, "five_class": 0.5342}
+  },
+  "ordinal": {
+    "modernbert_pca64": {"all_pair_accuracy": 0.7898, "adjacent_accuracy": 0.669, "cross_polarity_accuracy": 0.92575, "strictly_ordered_family_rate": 0.118},
+    "modernbert_full768": {"all_pair_accuracy": 0.8369, "adjacent_accuracy": 0.7125, "cross_polarity_accuracy": 0.951, "strictly_ordered_family_rate": 0.179}
+  },
+  "length": {"plus2_longer": 795, "mean_plus2_minus_minus2_words": 7.71, "mean_within_family_spearman": 0.3316699388323618},
+  "semantic": {"six_criteria_satisfied": 4510, "responses_with_all_facts": 4736, "fully_passing_families": 738, "required_facts": 1220, "response_fact_cells": 6100, "facts_preserved": 5828, "facts_missing_or_partial": 260, "facts_contradicted": 12, "belief_conflict_families": 503, "endorsing_responses": 0}
+}

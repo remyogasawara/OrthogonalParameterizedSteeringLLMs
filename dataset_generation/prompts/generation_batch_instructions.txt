@@ -1,0 +1,10 @@
+Read generation_protocol_4.md completely, then process the attached
+warmth_regeneration_job_NNN.jsonl.
+
+Return a downloadable UTF-8 JSONL file with exactly one output family for every input
+family, in the original order. Copy all input fields exactly and add the five generated
+responses required by the protocol. Output JSONL only: no Markdown fences, prose,
+citations, notes, or omitted rows.
+
+Before returning the file, validate every line as JSON and verify that every family has
+exactly the warmth levels -2, -1, 0, 1, and 2 in that order.

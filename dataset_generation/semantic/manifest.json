@@ -1,0 +1,42 @@
+{
+  "format_version": 1,
+  "dataset": "../data/warmth_families.jsonl",
+  "dataset_sha256": "112395b9fe0bffb8ac09f95dd180bb64ba82bf7a5c0f34df152f20f65fdbd5e4",
+  "artifact_sha256": {
+    "judgments/shard_01.tsv": "099d4f2cea7decc7e58b37fad38393b1ad1d517059808a508c823d3fbf74d3bf",
+    "judgments/shard_02.tsv": "26a9f5f7412bec22380134610e9e9a7a8ac92a78f455f04695052dd7bef82d21",
+    "judgments/shard_03.tsv": "ab91a7d00874268d06af8d2e77672823359644a26df3f79ea512510c087b5c68",
+    "join_key.jsonl": "136e57b3208687e10a534bc89336957a32f0d5dca647806a5c10b670158dc54c",
+    "review_schema.py": "b88476c2424ad25a85260293bc016a1509c5c87966c5512ded6dc3820f459054",
+    "REVIEW_GUIDE.md": "c4de2b1e4c9de81c86411317915786c2959500ed89a414f9f50c59691621cfa3"
+  },
+  "historical_packets": {
+    "1": {
+      "families": 334,
+      "sha256": "9b9ca9467f0bf71e97a2b9591dc97b471b01a7b350fec694015485115757a3c0"
+    },
+    "2": {
+      "families": 333,
+      "sha256": "739c13849779bbd74f102902f45f41ec531d7a9deb2bc2b314b775f211d74c5a"
+    },
+    "3": {
+      "families": 333,
+      "sha256": "751a7a1ac81abc245b00306d866defe20470dbab31eeda9f54324c4d274837de"
+    }
+  },
+  "review_method": {
+    "configured_model": "gpt-6-astra",
+    "api_returned_model_id": null,
+    "temperature_controlled": false,
+    "key_facts_visible": true,
+    "siblings_visible": true,
+    "labels_protocol_generator_hidden": true,
+    "reviewer_contexts": 3,
+    "family_assessments": 1000,
+    "ratings_per_family": 1,
+    "blinding": "Procedural; not filesystem access isolation",
+    "external_fact_verification": false,
+    "human_adjudication_completed": false,
+    "new_judgments_deterministically_reproducible": false
+  }
+}

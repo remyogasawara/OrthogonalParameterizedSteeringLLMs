@@ -1,0 +1,43 @@
+\begin{table*}[t]
+\centering
+\small
+\begin{tabularx}{\textwidth}{@{}lXl@{}}
+\toprule
+Method & Metric & Result \\
+\midrule
+Semantic review
+ & Responses satisfying all six reference criteria & @@semantic_all@@ \\
+Semantic review
+ & Responses preserving all required facts & @@semantic_facts@@ \\
+Semantic review
+ & Families with all five responses satisfying the ref & @@semantic_families@@ \\
+Disagreement prompts
+ & Endorsement at $-2/-1/0/+1/+2$ & @@endorsement@@ \\
+\midrule
+TF--IDF
+ & Three-class / five-class accuracy & @@tfidf@@ \\
+ModernBERT-base
+ & Three-class / five-class accuracy & @@modernbert@@ \\
+Word count only
+ & Three-class / five-class accuracy & @@word_count@@ \\
+Seven surface features
+ & Three-class / five-class accuracy & @@surface_seven@@ \\
+\midrule
+Ordinal probe
+ & All / adjacent / cold--warm pairs correctly ordered
+ & @@ordinal_pairs@@ \\
+Ordinal probe
+ & Families with all five levels strictly ordered & @@ordinal_families@@ \\
+\bottomrule
+\end{tabularx}
+
+\caption{Automated diagnostics on the complete synthetic warmth dataset.
+The semantic review measures consistency with supplied reference
+specifications rather than external factual correctness or human judgment.
+Embedding-based results use 768-dimensional ModernBERT-base representations.
+Predictive evaluations use
+five-fold cross-validation grouped by recorded factual core. Majority-class
+baselines are 40\% and 20\% for the three- and five-class tasks,
+respectively.}
+\label{tab:warmth-validation}
+\end{table*}
