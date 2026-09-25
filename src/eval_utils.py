@@ -114,6 +114,7 @@ def get_steering_results(
         if intervention_layers is None:
             raise ValueError("intervention_layers must be provided when applying steering")
 
+        # NOTE: This being here is probably poor modularization
         #   One solution is to add extra statements here to define hook functions
         #   A probably better solution, but with a little more refactoring is to have hook functions be inputs
         hook_fn = functools.partial(

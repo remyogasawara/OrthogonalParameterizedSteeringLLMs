@@ -153,6 +153,7 @@ class Activations:
                 "answer_not_matching_behavior": raw_data["answer_not_matching_behavior"]
             }
             
+    # NOTE: Might want to adapt/make a new function for your purposes
     def get_steering_vecs(
         self,
         steering_functions: dict[str, Callable] = {},
