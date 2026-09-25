@@ -2,7 +2,7 @@
 
 Fig 2 / Fig 4: curves traced from the archived figure PDFs (data/fig2_recovered.csv, data/fig4_recovered.csv;
     see trace_pdf_curves.py), because their experiment outputs were not archived.
-Fig 5: recomputed on CPU from the committed activations (../activations/3-1_...pkl).
+Fig 5: from data/butterfly_power_coord.npz (extract_butterfly.py; falls back to ../activations/3-1_...pkl).
 
 Usage: python3 make_figs.py            -> writes out/*.pdf (for the paper) and out/*.png (preview)
 """
@@ -222,11 +222,15 @@ def fig5(height=FIG5_HEIGHT, right=FIG5_RIGHT, name="butterfly_power_coord_iclr"
     "Orthogonal" with an arrow between, the original legend on the right, no axis labels, the 0.88 is in the caption.
     Include at width=0.8\\linewidth: the page is exactly FIG5_PAGE_W wide so it prints 1:1.
     Same whole-number ticks on both axes of a panel; Fig 2 arrow and legend style."""
-    from butterfly_repro import compute
-    from load_acts import load
-
-    obj = load(ACTS)
-    r = compute(obj, "coordinate-other-ais", "power-seeking-inclination", basis="all")
+    npz = os.path.join(HERE, "data", "butterfly_power_coord.npz")     # written by extract_butterfly.py
+    if os.path.exists(npz):
+        z = np.load(npz, allow_pickle=True)
+        r = dict(orig=list(z["orig"]), dag=list(z["dag"]), orig_means=z["orig_means"], dag_means=z["dag_means"],
+                 cos=float(z["cos"]))
+    else:                                       # no npz: compute from the activations pickle (needs torch)
+        from butterfly_repro import compute
+        from load_acts import load
+        r = compute(load(ACTS), "coordinate-other-ais", "power-seeking-inclination", basis="all")
     print(f"fig5: cosine(coordination, power) = {r['cos']:.4f}")
     _butterfly(r, ("Coordination", "Power"), name, height=height, right=right, colors=colors)
 
