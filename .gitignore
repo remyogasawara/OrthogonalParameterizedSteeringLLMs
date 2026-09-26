@@ -15,6 +15,7 @@ steering_vecs/*
 experiment_results/results_vary_alpha_entire_seq_logits.pkl
 experiment_results/*
 logs/*
+scripts/logs/
 misc_notes/*
 results/*
 saved_plots/*

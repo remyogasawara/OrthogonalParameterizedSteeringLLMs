@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=multi_steering_pipeline
+#SBATCH --job-name=sycophancy_warmth_pipeline
 #SBATCH --partition=<SLURM_PARTITION>
 #SBATCH --account=<SLURM_ACCOUNT>
 
@@ -13,9 +13,13 @@
 #SBATCH --output=logs/%x_%j.out
 #SBATCH --error=logs/%x_%j.err
 
+# Reproduces Table 1 (sycophancy x warmth) and the steered generations setting of Figure 1:
+# the four-stage pipeline on datasets/warmth_sycophancy with the grid used for those results
+# (single-behaviour sweeps and interval fitting at alpha in [-10, 10], step 1.0).
+# Final pickles: results/logit_results/alpha_beta/<DATE>_sycophancy_warmth_multi_attribute_experiment.pkl and ..._warmth_sycophancy_...
 # -------------------------
 # Environment setup
-# Run from the scripts/ directory: sbatch run_multi_steering_pipeline.sh  (or: bash run_multi_steering_pipeline.sh)
+# Run from the scripts/ directory: sbatch run_sycophancy_warmth_pipeline.sh  (or: bash run_sycophancy_warmth_pipeline.sh)
 # -------------------------
 if command -v conda >/dev/null 2>&1; then
   source "$(conda info --base)/etc/profile.d/conda.sh"
@@ -36,11 +40,11 @@ MODEL_PATH="meta-llama/Llama-2-7b-chat-hf"
 MODEL_NAME="Llama-2-7b-chat-hf" 
 LAYER=13
 
-DATASET_SUBFOLDER="tan_paper_datasets/mwe/xrisk"
+DATASET_SUBFOLDER="warmth_sycophancy"
 
-BEHAVIORS=(coordinate-other-ais corrigible-neutral-HHH myopic-reward survival-instinct power-seeking-inclination wealth-seeking-inclination)
-TEST_BEHAVIOR1=coordinate-other-ais
-TEST_BEHAVIOR2=power-seeking-inclination
+BEHAVIORS=(sycophancy warmth)
+TEST_BEHAVIOR1=sycophancy
+TEST_BEHAVIOR2=warmth
 TARGET_CLASSES=("$TEST_BEHAVIOR1" "$TEST_BEHAVIOR2")
 
 ACTIVATIONS_NAME="${MODEL_NAME}_$(IFS=_; echo "${BEHAVIORS[*]}")"
@@ -65,9 +69,9 @@ python -u ../experiments/train_single_behavior.py \
 --dataset_subfolder "$DATASET_SUBFOLDER" \
 --layer "$LAYER" \
 --steering_type alpha-iterative \
---alpha-min -2.0 \
---alpha-max 2.0 \
---alpha-step 0.25 \
+--alpha-min -10.0 \
+--alpha-max 10.0 \
+--alpha-step 1.0 \
 --save_name "$ALPHA_TRAIN_NAME"
 
 echo "=== Stage 2: single-behavior alpha sweep (parameterized) ==="
@@ -77,9 +81,9 @@ python -u ../experiments/train_single_behavior.py \
 --dataset_subfolder "$DATASET_SUBFOLDER" \
 --layer "$LAYER" \
 --steering_type parameterized \
---alpha-min -2.0 \
---alpha-max 2.0 \
---alpha-step 0.25 \
+--alpha-min -10.0 \
+--alpha-max 10.0 \
+--alpha-step 1.0 \
 --save_name "$PARAM_TRAIN_NAME"
 
 echo "=== Stage 3: fit intervals ==="
@@ -87,7 +91,7 @@ python -u ../experiments/compute_intervals.py \
 --training_experiments "alpha-iterative:${ALPHA_TRAIN_NAME}" "parameterized:${PARAM_TRAIN_NAME}" \
 --behaviors "${BEHAVIORS[@]}" \
 --layer "$LAYER" \
---step 0.25 \
+--step 1.0 \
 --save_name "$INTERVAL_MAP_NAME"
 
 
