@@ -1041,8 +1041,9 @@ def fig_quad(W=0.485 * TEXTWIDTH, name="param_quad_plot_iclr", tick_fs=6, lab_fs
     save(fig, name, bbox=Bbox.from_extents(0, 0, W, H))
 
 
-def fig_multi_steer(W=TEXTWIDTH, name="multi_steer_power_coord_iclr", beta_max=1.0, left_beta_max=2.0, tick_fs=6.5,
-                    lab_fs=8, leg_fs=6.5):
+def fig_multi_steer(W=TEXTWIDTH, name="multi_steer_power_coord_iclr", beta_max=1.0, left_beta_max=1.0, tick_fs=6.5,
+                    lab_fs=8, leg_fs=6.5, left=("alpha-iterative", "orthogonal-parameterized"),
+                    left_csv="alpha_beta_power_coord.csv", left_xlabel=r"$\alpha$ (Power-Seeking)"):
     """Fig 5 (fig:multi-steer-power-coord) as ONE pdf: alpha-iterative plot (left, big square) + parameterized
     quad plot (right, 2x2 of squares) on a common canvas, so the top legend line, the panel baselines and the
     beta key line up. Both use beta in [-beta_max, beta_max], the original coolwarm over that range, black at 0.
@@ -1050,8 +1051,8 @@ def fig_multi_steer(W=TEXTWIDTH, name="multi_steer_power_coord_iclr", beta_max=1
     Left panel shows every beta of the run; the quad shows |beta| <= beta_max, same colour per beta.
     Page = \\linewidth (5.5 in), prints 1:1."""
     from matplotlib.transforms import ScaledTranslation, blended_transform_factory
-    ab = pd.read_csv(os.path.join(HERE, "data", "alpha_beta_power_coord.csv"))
-    ab = ab[ab.estimator.isin(["orthogonal-alpha-iterative", "alpha-iterative"]) & (ab.beta.abs() <= left_beta_max + 1e-9)]
+    ab = pd.read_csv(os.path.join(HERE, "data", left_csv))
+    ab = ab[ab.estimator.isin(list(left)) & (ab.beta.abs() <= left_beta_max + 1e-9)]
     qd = pd.read_csv(os.path.join(HERE, "data", "quad_power_order.csv")).rename(columns={"order": "column_id"})
     qd = qd[np.isclose(qd.alpha * 2, np.round(qd.alpha * 2)) & (qd.beta.abs() <= beta_max + 1e-9)]
     betas = sorted(ab.beta.unique())                                     # left: all beta; right: |beta| <= beta_max
@@ -1079,19 +1080,24 @@ def fig_multi_steer(W=TEXTWIDTH, name="multi_steer_power_coord_iclr", beta_max=1
         if xlab:
             ax.set_xlabel(xlab, fontsize=lab_fs, labelpad=0.5)
 
-    # left: alpha-iterative, all shown betas, both estimators
-    for est, ls, filled in (("alpha-iterative", dashed, False), ("orthogonal-alpha-iterative", "-", True)):
+    # left: the two methods in `left` (orthogonal one solid and filled, the other dashed and hollow);
+    # parameterized methods use triangles as in the quad, alpha-iterative ones circles; x = the alpha actually applied
+    LEFT_STYLE = {est: ("-" if est.startswith("orthogonal") else dashed, est.startswith("orthogonal"),
+                        "^" if "parameterized" in est else "o") for est in left}
+    for est in sorted(left, key=lambda e: e.startswith("orthogonal")):          # orthogonal drawn on top
+        ls, filled, mk = LEFT_STYLE[est]
         for b in betas:
             g = ab[(ab.estimator == est) & (ab.beta == b)].sort_values("alpha_lookup")
             c = bcol[b]
-            axL.plot(g.alpha_lookup, g.avg_score, color=c, lw=0.6 if filled else 0.35, ls=ls, marker="o", ms=AB_MS,
-                     mew=0.3 if filled else 0.28, mec=c, mfc=c if filled else "white", zorder=4 if filled else 3)
+            axL.plot(g.alpha_lookup, g.avg_score, color=c, lw=0.6 if filled else 0.35, ls=ls, marker=mk,
+                     ms=AB_MS + (0.3 if mk == "^" else 0), mew=0.3 if filled else 0.28, mec=c,
+                     mfc=c if filled else "white", zorder=4 if filled else 3)
     lo, hi = ab.avg_score.min(), ab.avg_score.max()
     axL.set_ylim(lo - 0.05 * (hi - lo), hi + 0.05 * (hi - lo))
     axL.set_yticks(np.arange(np.ceil(lo), hi + 0.01, 1.0))
-    style(axL, r"$\alpha$ (Power-Seeking)")
+    style(axL, left_xlabel)
     axL.set_ylabel("Average score", fontsize=lab_fs, labelpad=0)
-    axL.set_title(r"$\alpha$-iterative", fontsize=lab_fs, pad=2)
+    # no left title: the legend line above the panel names both methods
     # right: parameterized quad (rows non-orth / orth, columns steering order), shared y
     cols = [("beta_first", "Coordination first"), ("alpha_first", "Power first")]
     rows = [("parameterized", "Non-orthogonal", dashed, False), ("orthogonal-parameterized", "Orthogonal", "-", True)]
@@ -1153,10 +1159,14 @@ def fig_multi_steer(W=TEXTWIDTH, name="multi_steer_power_coord_iclr", beta_max=1
         # one legend line across the top: line styles for both halves
         l0, r1 = axL.get_position().x0, axQ[0][1].get_position().x1
         ttop = max(axL.get_position().y1, top)
-        handles = [Line2D([], [], color="black", lw=0.6, marker="o", ms=AB_MS + 0.3, mew=0.3),
-                   Line2D([], [], color="black", lw=0.35, ls=dashed, marker="o", ms=AB_MS + 0.3, mew=0.28, mfc="white")]
+        names = {"alpha-iterative": r"$\alpha$-iterative", "orthogonal-alpha-iterative": r"Orthogonal $\alpha$-iterative",
+                 "parameterized": "Parameterized", "orthogonal-parameterized": "Orthogonal parameterized"}
+        order = sorted(left, key=lambda e: not e.startswith("orthogonal"))           # orthogonal first
+        handles = [Line2D([], [], color="black", lw=0.6 if LEFT_STYLE[e][1] else 0.35, ls=LEFT_STYLE[e][0],
+                          marker=LEFT_STYLE[e][2], ms=AB_MS + 0.3, mew=0.3 if LEFT_STYLE[e][1] else 0.28,
+                          mfc="black" if LEFT_STYLE[e][1] else "white") for e in order]
         pl = axL.get_position()
-        extra.append(fig.legend(handles, ["Orthogonal", "Non-orthogonal"], loc="lower center", ncol=2, frameon=False,
+        extra.append(fig.legend(handles, [names[e] for e in order], loc="lower center", ncol=2, frameon=False,
                                 bbox_to_anchor=((pl.x0 + pl.x1) / 2, ttop + 12 / (72 * H)), borderaxespad=0, borderpad=0,
                                 fontsize=leg_fs, handlelength=1.8, handletextpad=0.3, columnspacing=1.2))
 
@@ -1496,7 +1506,10 @@ if __name__ == "__main__":
     fig_alpha_beta_square(W=0.49 * TEXTWIDTH)   # Fig 5 left half (side-by-side variant, .49\linewidth)
     fig_quad()                              # Fig 9 quad plot (coordination x corrigibility), \linewidth of its minipage
     fig_quad(variant="power", name="param_quad_power_coord_iclr", beta_max=1.0)   # Fig 9: power x coordination, beta in [-1, 1]
-    fig_multi_steer()                       # Fig 5: alpha-iterative + quad in ONE pdf, \linewidth
+    # Fig 5: left = alpha-iterative vs orthogonal parameterized, measured on coordination (beta = power),
+    # right = parameterized order quad measured on power; include at \linewidth
+    fig_multi_steer(left_csv="alpha_beta_coord_power.csv", left_xlabel=r"$\alpha$ (Coordination)")
+    fig_multi_steer(name="multi_steer_power_left_iclr")   # alternative: left panel measured on power
     # Figs 6-8 (beta = 0 / 1,2 / -1,-2): square design, original y scale; shared left/right margins so the
     # three plots stacked on page 9 are the same size and line up
     small = [("alpha_beta_power_coord_beta0_iclr", [0.0]), ("alpha_beta_power_coord_positives_iclr", [1.0, 2.0]),
