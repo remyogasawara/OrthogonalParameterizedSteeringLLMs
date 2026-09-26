@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Prepare TruthfulQA, ToxiGen, and BBQ for SteeringLLMsCorruption.
+"""Prepare TruthfulQA, ToxiGen, and BBQ in this repository's two-choice format (MAT-Steer comparison).
 
 Run from anywhere. By default this writes one JSONL file per behavior under
 <project-root>/datasets/mat_steer, where <project-root> is the parent of the

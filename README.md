@@ -47,10 +47,12 @@ The repository includes the following methods:
 │   └── run_multi_attribute_experiment.py
 ├── results/
 │   ├── intervals/                # Fitted behavior-specific interval maps
-│   └── logit_results/            # Single- and multi-behavior evaluations
+│   └── logit_results/            # Single-behavior evaluations; multi-attribute runs in logit_results/alpha_beta/
 ├── scripts/
 │   └── run_multi_steering_pipeline.sh
 ├── src/                          # Dataset, model, steering, and evaluation utilities
+├── paper_figures/                # Rebuilds every figure in the paper from committed data (no GPU)
+├── dataset_generation/           # Warmth dataset, generation prompts and validation (Appendix G)
 └── environment.yaml              # Conda environment specification
 ```
 
@@ -430,20 +432,20 @@ The two final experiment names include the execution date and selected behavior 
 The script reports final experiment files under:
 
 ```text
-results/logit_results/
+results/logit_results/alpha_beta/
 ```
 
 Intermediate outputs are written to the repository's activation, interval, and result directories using the generated names above.
 
 ## Inspect final results
 
-The experiment files are Python pickles. A typical result can be inspected from the repository root with:
+The experiment files are Python pickles. A typical result can be inspected from the repository root, inside the `steering` environment (loading a result imports the repository's `src` package), with:
 
 ```python
 import pickle
 from pathlib import Path
 
-result_dir = Path("results/logit_results")
+result_dir = Path("results/logit_results/alpha_beta")
 result_paths = sorted(result_dir.glob("*_multi_attribute_experiment.pkl"))
 
 if not result_paths:
@@ -459,12 +461,35 @@ for result_path in result_paths:
     print(f"\nLoaded: {result_path}")
 
     if hasattr(experiment, "to_dataframe"):
-        print(experiment.to_dataframe().to_string(index=False))
+        # include_eval_details=False drops the per-question lists and keeps one row per setting
+        print(experiment.to_dataframe(include_eval_details=False).to_string(index=False))
     else:
         print(experiment)
 ```
 
 Pickle files should only be loaded from trusted sources.
+
+## Reproducing the paper's results
+
+All commands are run from `scripts/` unless stated otherwise. Every `.sh` script has a header that says which result it produces, what it writes, and how to aggregate it. Fill in `<SLURM_PARTITION>` and `<SLURM_ACCOUNT>` (or pass `--partition`/`--account` to `sbatch`), or run the script with `bash` on a GPU machine.
+
+| Paper result | Command | Output |
+|---|---|---|
+| All figures | `cd paper_figures && python make_figs.py` (no GPU; see `paper_figures/README.md`) | `paper_figures/out/*.pdf` |
+| Sycophancy x warmth results (Table 1) | `sbatch run_sycophancy_warmth_pipeline.sh` | `results/logit_results/alpha_beta/<DATE>_{sycophancy_warmth,warmth_sycophancy}_multi_attribute_experiment.pkl` |
+| Multi-steering sensitivity and range (Tables 2 and 3) and the `percent_steered` versions in the appendix | Stages 1-3 of `run_multi_steering_pipeline.sh`, then `sbatch run_alpha_beta_pairs.sh` and `sbatch run_alpha_beta_pairs_flipped_param.sh`; aggregate with `src/mean_sd.py`, `src/parameterized_mean_sd.py` and `src/fixed_endpoint_range.py` (exact commands in the two script headers) | `results/logit_results/alpha_beta/` (14 runs) and `.../alpha_beta/flipped_param/` (28 runs); tables in `results/tables/` |
+| Comparison to MAT-Steer (Table 4; Llama 3.1 8B Instruct, layer 14) | `python experiments/prepare_mat_steer_datasets.py --output-dir datasets/mat_steer` from the repository root, then `sbatch run_mat_steer_pipeline.sh` | `results/logit_results/<DATE>_mat_*.pkl` |
+| Qwen 3 8B appendix: layer choice and range tables | `sbatch layer_sweep_qwen.sh` (ranks layers with `src/layer_evaluation.py`), then `sbatch run_qwen_pipeline.sh` | `results/layer_sweep/Qwen_Qwen3-8B/`; `results/logit_results/alpha_beta/<DATE>_Qwen3-8B_*` |
+| LLM-as-a-judge appendix | `python experiments/run_openended_alpha_beta_pairs.py ...` (arguments in its header), then `export OPENAI_API_KEY=...` and `python experiments/score_openended_with_judge.py` | `results/openended/`; `results/llm_judge/*.csv` |
+| Warmth dataset creation and validation table (appendix) | `cd dataset_generation && python run_experiments.py --data data/warmth_families.jsonl` (no GPU; see `dataset_generation/README.md`) | `dataset_generation/results/` |
+
+Notes on matching the reported numbers:
+
+- **Interval grid.** The paper's interval maps were fitted on the single-behaviour sweep at the Python defaults (`train_single_behavior.py --alpha-step 0.1`, 41 values in [-2, 2]; `compute_intervals.py --step 0.1 --gamma 0.1`) and saved as `<MODEL>_<BEHAVIORS>_interval_map`. The pipeline script above uses step 0.25 and saves `..._large_interval_map`. To reproduce the tables exactly, run Stages 2-3 with step 0.1 and pass the map name to the pair scripts with `INTERVAL_MAP_NAME=<name>`.
+- **Traced figure data.** The before/after-clipping curves and the alpha-iterative vs parameterized curves are replotted from data traced out of the original figure files, because their experiment outputs were not archived (see `paper_figures/README.md`).
+- **Columns without a script.** `src/fixed_endpoint_range.py` reports the OAI and AI columns of the range tables. The OP and P columns can be computed from the same result files, but no script prints them yet.
+- **Unrecorded settings.** The MAT-Steer baseline rows, the Qwen multi-attribute runs and the open-ended judge runs were not recorded as job scripts. The scripts above reconstruct them from the code and the paper; each header lists what was assumed.
+- **Sampling.** Open-ended generation is sampled (temperature 0.1) and the judge model is not deterministic, so a rerun of the LLM-as-a-judge appendix will be close to, but not identical with, the reported values.
 
 ## Run or resume individual stages
 
