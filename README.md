@@ -41,7 +41,7 @@ The repository includes the following methods:
 ├── activations/                  # Generated activations and steering vectors
 ├── datasets/                     # Behavior datasets
 ├── experiments/
-│   ├── new_get_activations.py
+│   ├── get_activations.py
 │   ├── train_single_behavior.py
 │   ├── compute_intervals.py
 │   └── run_multi_attribute_experiment.py
@@ -295,7 +295,7 @@ Therefore, it stops immediately if a stage fails or if a required variable is un
 ### Stage 1: extract activations
 
 ```bash
-python -u ../experiments/new_get_activations.py "$MODEL_PATH" \
+python -u ../experiments/get_activations.py "$MODEL_PATH" \
   --behaviors "${BEHAVIORS[@]}" \
   --dataset-subfolder "$DATASET_SUBFOLDER" \
   --layer "$LAYER" \

@@ -37,7 +37,7 @@ How to run (from scripts/; needs one GPU and access to the gated Llama 3.1 weigh
         --alpha --parameterized \
         --save_name mat_steer_alpha_one
 
-Inputs: activations/<activations_name>.pkl (experiments/new_get_activations.py) and, when
+Inputs: activations/<activations_name>.pkl (experiments/get_activations.py) and, when
 --interval_map_name is given, results/intervals/<interval_map_name>.pkl
 (experiments/compute_intervals.py).
 Writes: results/logit_results/<save_name>.pkl, an ExperimentOutput pickle. In

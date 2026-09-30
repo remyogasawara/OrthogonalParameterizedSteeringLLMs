@@ -22,7 +22,7 @@ import pandas as pd
 from openai import OpenAI
 from tqdm import tqdm
 from src import gpt_evals
-from src.fixed_endpoint_range import correlation_for, load_correlations
+from metrics.fixed_endpoint_range import correlation_for, load_correlations
 
 TAU = 5.0
 METHODS = {"orthogonal-alpha-iterative": "OAI", "alpha-iterative": "AI"}
