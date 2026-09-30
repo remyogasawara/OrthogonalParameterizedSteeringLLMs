@@ -1,0 +1,9 @@
+{
+    "coordinate-other-ais / power-seeking-inclination": 0.87,
+    "coordinate-other-ais / corrigible-neutral-HHH": 0.81,
+    "corrigible-neutral-HHH / power-seeking-inclination": 0.75,
+    "power-seeking-inclination / wealth-seeking-inclination": 0.73,
+    "coordinate-other-ais / wealth-seeking-inclination": 0.62,
+    "corrigible-neutral-HHH / wealth-seeking-inclination": 0.30,
+    "myopic-reward / wealth-seeking-inclination": 0.028
+}
