@@ -107,7 +107,7 @@ INTERVAL_MAP_NAME="${MODEL_NAME}_$(IFS=_; echo "${BEHAVIORS[*]}_large_interval_m
 # --skip-auth-check only skips the Hugging Face login check, which would fail
 # without a login even though Qwen3-8B is public. It does not change any result.
 echo "=== Stage 1: compute activations ==="
-python -u ../experiments/new_get_activations.py "$MODEL_PATH" \
+python -u ../experiments/get_activations.py "$MODEL_PATH" \
 --behaviors "${BEHAVIORS[@]}" \
 --dataset-subfolder "$DATASET_SUBFOLDER" \
 --layer "$LAYER" \

@@ -23,7 +23,7 @@
 #   scripts/run_qwen_pipeline.sh.
 #
 # What it does, for each zero-indexed layer in LAYERS = 12, 14, ..., 28:
-#   Stage 1  experiments/new_get_activations.py: activations and
+#   Stage 1  experiments/get_activations.py: activations and
 #            difference-of-means steering vectors for the six xrisk behaviors.
 #   Stage 2  experiments/test_single_behavior.py, once with alpha-iterative and
 #            once with parameterized steering: one behavior steered at a time,
@@ -114,7 +114,7 @@ for LAYER in "${LAYERS[@]}"; do
     # fail without a login even though Qwen3-8B is public. It does not change
     # any result.
     echo "=== [layer ${LAYER}] Stage 1: compute activations ==="
-    python -u ../experiments/new_get_activations.py "$MODEL_PATH" \
+    python -u ../experiments/get_activations.py "$MODEL_PATH" \
         --behaviors "${BEHAVIORS[@]}" \
         --dataset-subfolder "$DATASET_SUBFOLDER" \
         --layer "$LAYER" \

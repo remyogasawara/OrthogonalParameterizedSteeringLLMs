@@ -52,7 +52,7 @@ EXPERIMENT_NAME1="${DATE}_$(IFS=_; echo "${TEST_BEHAVIOR1}_${TEST_BEHAVIOR2}")_m
 EXPERIMENT_NAME2="${DATE}_$(IFS=_; echo "${TEST_BEHAVIOR2}_${TEST_BEHAVIOR1}")_multi_attribute_experiment"
 
 echo "=== Stage 1: compute activations ==="
-python -u ../experiments/new_get_activations.py "$MODEL_PATH" \
+python -u ../experiments/get_activations.py "$MODEL_PATH" \
 --behaviors "${BEHAVIORS[@]}" \
 --dataset-subfolder "$DATASET_SUBFOLDER" \
 --layer "$LAYER" \

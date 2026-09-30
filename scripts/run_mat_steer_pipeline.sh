@@ -95,7 +95,7 @@ if [ "$NEED_DATA" -eq 1 ]; then
 fi
 
 echo "=== Stage 1: compute activations ==="
-python -u ../experiments/new_get_activations.py "$MODEL_PATH" \
+python -u ../experiments/get_activations.py "$MODEL_PATH" \
   --behaviors "${BEHAVIORS[@]}" \
   --dataset-subfolder "$DATASET_SUBFOLDER" \
   --layer "$LAYER" \
