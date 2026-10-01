@@ -1075,6 +1075,65 @@ def evaluate_alpha_sweep_single_behavior(
 # --------------------------------------------------------------------------- #
 # Stage 3: interval extraction
 # --------------------------------------------------------------------------- #
+def extract_intervals(df, alphas, behaviors, metric="avg_score", layer=13, token_pos="answer_token", gamma=0.4):
+    
+    results = {}
+    
+    a_indices = [i for i, alpha in enumerate(alphas) if alpha <= 1e-9]
+    b_indices = [i for i, alpha in enumerate(alphas) if alpha >= -1e-9]
+
+
+    for behavior in behaviors:
+        # Filter main subset
+        agg_funcs = {metric:['mean']}
+                        
+        sub_df = df[(df["behavior"] == behavior) &
+                    (df["layer"] == layer) &
+                    (df["token_pos"] == token_pos)]
+        
+        
+        grouped = (sub_df
+                        .groupby(["estimator", "alpha"])
+                        .agg(agg_funcs)
+                        .reset_index()
+                  )
+
+        
+        scores = grouped.loc[:, (metric, "mean")]
+                
+        best_loss = float('inf')
+        best_pair = (0.0, 0.0)
+        mid = len(scores) // 2 
+        global_min_segment = scores[:mid]
+        global_max_segment = scores[mid:]
+
+        global_min = global_min_segment.min()
+        global_max = global_max_segment.max()
+        
+        for i in a_indices:
+            for j in b_indices:
+                if j <= i: continue
+                
+                A, B = alphas[i], alphas[j]
+                f_A, f_B = scores[i], scores[j]
+                
+                
+                # Term 1: Must be anchored at the local lowest/highest points
+                # If f(A) is not the lowest point in the segment, this grows.
+                term1 = ((f_A - global_min) + (global_max - f_B)) / 2
+                
+                # Term 2: Slope
+                total_rise = (f_B - f_A) / (B - A)
+                
+                # The Cost Function
+                loss = term1 + (gamma * (1 - (total_rise)))
+                
+                if loss < best_loss:
+                    best_loss = loss
+                    best_pair = (A, B)
+        results[behavior] = best_pair
+    return results
+
 
 def extract_intervals_padded(
     df, alphas, behaviors, metric="avg_score", layer=13, token_pos="answer_token",
@@ -1278,6 +1337,382 @@ def evaluate_multi_attribute(
                 if use_pickle:
                     with open(f"{filepath}.pkl", "wb") as f:
                         pickle.dump(experiment_output, f)
+
+    return experiment_output
+
+
+def evaluate_across_behaviors_and_vecs_alpha_beta(
+    model: SteerableModel,
+    steering_vec_dict: SteeringVecsDict,
+    meanAs: Dict[str, Tensor],
+    meanBs: Dict[str, Tensor],
+    steering_types: List[str],
+    test_data_dict: Dict[str, DataDict],
+    intervention_layers: List[int],
+    intervals=None,
+    alpha_values=None,
+    beta_values=None,
+    target_classes=None,
+    save_dir=None,
+    verbose=True,
+    use_pickle=False,
+    open_ended=False,
+    gpt_client=None,
+    logits_only=True,
+    logit_aggregation_method: Literal[
+        "last_token",
+        "entire_sequence",
+        "normalized",
+    ] = "entire_sequence",
+    generation_batch_size=4,
+    generation_max_tokens=64,
+    behavior_subset=None,
+    layer_subset=None,
+    token_pos_subset=None,
+    estimator_subset=None,
+    normalize_steering_vecs=False,
+    include_no_steer=True,
+    experiment_output: Optional[ExperimentOutput] = None,
+    run: Optional[int] = None,
+    varying_variable: Optional[str] = None,
+    varying_variable_value: Optional[Union[int, float, str]] = None,
+    test_behaviors: Optional[List[str]] = None,
+    additional_info_kwargs: Optional[Dict] = None,
+    behavior_alpha_mapping: Optional[Dict] = None,
+    behavior_alpha_mapping_parameterized: Optional[Dict] = None,
+    num_points: int = 41,
+    scaled_grid: Optional[np.ndarray] = None,
+) -> ExperimentOutput:
+    """
+    Evaluate every alpha-beta combination for multi-attribute steering.
+
+    For each canonical alpha in `alpha_values`, every canonical beta in
+    `beta_values` is evaluated. Alpha and beta are mapped independently
+    according to the behavior they control.
+
+    Non-parameterized estimators use `behavior_alpha_mapping`.
+    Parameterized estimators use `behavior_alpha_mapping_parameterized`.
+
+    The canonical and mapped values are both stored in the output.
+    """
+
+    def vprint(message):
+        if verbose:
+            print(message)
+
+    def map_value(
+        mapping: Optional[Dict],
+        behavior: str,
+        value: float,
+    ) -> float:
+        """Map a canonical steering value for one behavior."""
+        value = float(value)
+
+        if mapping is None:
+            return value
+
+        if behavior not in mapping:
+            raise ValueError(
+                f"No steering-value mapping found for behavior "
+                f"{behavior!r}. Available behaviors: "
+                f"{list(mapping.keys())}"
+            )
+
+        behavior_mapping = mapping[behavior]
+
+        # Try the original floating-point value first.
+        if value in behavior_mapping:
+            return behavior_mapping[value]
+
+        # Then try rounded representations to avoid floating-point noise.
+        for decimals in (10, 5, 2, 1):
+            rounded_value = round(value, decimals)
+            if rounded_value in behavior_mapping:
+                return behavior_mapping[rounded_value]
+
+        raise ValueError(
+            f"No mapping found for behavior={behavior!r}, "
+            f"value={value}. Available values: "
+            f"{list(behavior_mapping.keys())}"
+        )
+
+    if alpha_values is None:
+        raise ValueError("alpha_values must be provided.")
+
+    if target_classes is None:
+        raise ValueError("target_classes must be provided.")
+
+    if len(target_classes) != 2:
+        raise ValueError(
+            "Alpha-beta evaluation currently expects exactly two "
+            f"target classes, but received {target_classes}."
+        )
+
+    if test_behaviors is None:
+        test_behaviors = list(target_classes)
+
+    if beta_values is None:
+        beta_values = np.arange(-1.0, 1.1, 0.5)
+
+    if additional_info_kwargs is None:
+        additional_info_kwargs = {}
+
+    if scaled_grid is None:
+        scaled_grid = np.zeros(5)
+
+    if experiment_output is None:
+        experiment_output = ExperimentOutput()
+
+    if save_dir and not os.path.exists(save_dir):
+        os.makedirs(save_dir)
+
+    # No-steer only needs to be run once for each steering-vector behavior.
+    ran_with_no_steer = {
+        behavior: False
+        for behavior in steering_vec_dict
+    }
+
+    for alpha in alpha_values:
+        canonical_alpha = round(float(alpha), 10)
+        vprint(f"Running evals with alpha={canonical_alpha}")
+
+        for behavior in test_behaviors:
+            if behavior_subset is not None:
+                if behavior not in behavior_subset:
+                    continue
+
+            if behavior not in steering_vec_dict:
+                raise ValueError(
+                    f"No steering vectors found for behavior "
+                    f"{behavior!r}."
+                )
+
+            behavior_vecs = steering_vec_dict[behavior]
+
+            vprint(f"Evaluating {behavior} steering vecs")
+            start_time = time.time()
+
+            for layer, token_map in behavior_vecs.items():
+                if layer_subset is not None:
+                    if layer not in layer_subset:
+                        continue
+
+                for token_pos, original_steering_dir in token_map.items():
+                    if token_pos_subset is not None:
+                        if token_pos not in token_pos_subset:
+                            continue
+
+                    # Copy so that adding/removing no_steer does not mutate
+                    # steering_vec_dict.
+                    steering_dir = original_steering_dir.copy()
+
+                    if (
+                        include_no_steer
+                        and not ran_with_no_steer[behavior]
+                    ):
+                        steering_dir["no_steer"] = None
+                        ran_with_no_steer[behavior] = True
+                    else:
+                        steering_dir.pop("no_steer", None)
+
+                    if normalize_steering_vecs:
+                        steering_dir = normalize_steering_dir(
+                            steering_dir
+                        )
+
+                    vec = steering_dir["sample_diff_of_means"]
+
+                    for estimator_name in steering_types:
+                        if estimator_subset is not None:
+                            if estimator_name not in estimator_subset:
+                                continue
+
+                        vprint(
+                            f"Evaluating layer={layer} "
+                            f"token_pos={token_pos} "
+                            f"estimator={estimator_name}"
+                        )
+
+                        layers_to_intervene = (
+                            [layer]
+                            if intervention_layers is None
+                            else intervention_layers
+                        )
+
+                        # Parameterized and non-parameterized estimators use
+                        # their respective mappings.
+                        if "parameterized" in estimator_name:
+                            value_mapping = (
+                                behavior_alpha_mapping_parameterized
+                            )
+                        else:
+                            value_mapping = behavior_alpha_mapping
+
+                        for test_behavior in test_behaviors:
+                            if test_behavior not in target_classes:
+                                raise ValueError(
+                                    f"Test behavior {test_behavior!r} "
+                                    "is not included in target_classes="
+                                    f"{target_classes}."
+                                )
+
+                            beta_behaviors = [
+                                target_behavior
+                                for target_behavior in target_classes
+                                if target_behavior != test_behavior
+                            ]
+
+                            if len(beta_behaviors) != 1:
+                                raise ValueError(
+                                    "Could not uniquely determine the "
+                                    "beta behavior for "
+                                    f"{test_behavior!r}."
+                                )
+
+                            beta_behavior = beta_behaviors[0]
+
+                            test_data = test_data_dict.get(
+                                test_behavior
+                            )
+                            if test_data is None:
+                                raise ValueError(
+                                    "No test data found for behavior "
+                                    f"{test_behavior!r}."
+                                )
+
+                            # Map alpha according to the behavior controlled
+                            # by alpha.
+                            mapped_alpha = map_value(
+                                mapping=value_mapping,
+                                behavior=test_behavior,
+                                value=canonical_alpha,
+                            )
+
+                            # Evaluate every beta for this alpha.
+                            for beta in beta_values:
+                                canonical_beta = round(
+                                    float(beta),
+                                    10,
+                                )
+
+                                # Map beta according to the behavior
+                                # controlled by beta.
+                                mapped_beta = map_value(
+                                    mapping=value_mapping,
+                                    behavior=beta_behavior,
+                                    value=canonical_beta,
+                                )
+
+                                # Create a fresh dictionary for every
+                                # combination to prevent beta values from
+                                # leaking across iterations.
+                                current_alphas = {
+                                    test_behavior: mapped_alpha,
+                                    beta_behavior: mapped_beta,
+                                }
+
+                                vprint(
+                                    f"Evaluating {test_behavior}: "
+                                    f"alpha={canonical_alpha} "
+                                    f"-> {mapped_alpha}, "
+                                    f"beta={canonical_beta} "
+                                    f"-> {mapped_beta}, "
+                                    f"alphas={current_alphas}"
+                                )
+
+                                result_and_eval = (
+                                    grab_results_and_evaluate_steering(
+                                        model=model,
+                                        test_data=test_data,
+                                        all_steering_dir=(
+                                            steering_vec_dict
+                                        ),
+                                        steering_dir=steering_dir,
+                                        meanAs=meanAs,
+                                        meanBs=meanBs,
+                                        steering_type=estimator_name,
+                                        intervention_layers=(
+                                            layers_to_intervene
+                                        ),
+                                        alphas=current_alphas,
+                                        behavior_names=target_classes,
+                                        open_ended=open_ended,
+                                        gpt_client=gpt_client,
+                                        logits_only=logits_only,
+                                        logit_aggregation_method=(
+                                            logit_aggregation_method
+                                        ),
+                                        generation_batch_size=(
+                                            generation_batch_size
+                                        ),
+                                        generation_max_tokens=(
+                                            generation_max_tokens
+                                        ),
+                                    )
+                                )
+
+                                experiment_output.add_result(
+                                    behavior=behavior,
+                                    layer=layer,
+                                    token_pos=token_pos,
+                                    estimator=estimator_name,
+                                    eval_dict=(
+                                        result_and_eval["eval"]
+                                    ),
+                                    # Store the canonical alpha so plots
+                                    # use the common coordinate system.
+                                    alpha=canonical_alpha,
+                                    steering_vec=vec,
+                                    raw_results=(
+                                        result_and_eval["results"]
+                                    ),
+                                    run=run,
+                                    varying_variable=(
+                                        varying_variable
+                                    ),
+                                    varying_variable_value=(
+                                        varying_variable_value
+                                    ),
+                                    additional_kwargs={
+                                        "test_behavior": (
+                                            test_behavior
+                                        ),
+                                        "mapped_alpha": mapped_alpha,
+                                        "beta": canonical_beta,
+                                        "mapped_beta": mapped_beta,
+                                        "beta_behavior": beta_behavior,
+                                        **additional_info_kwargs,
+                                    },
+                                )
+
+                                if verbose:
+                                    evaluation = (
+                                        result_and_eval["eval"]
+                                    )
+                                    print(
+                                        "Percent Steered: "
+                                        f"{evaluation['percent_steered']}; "
+                                        "Avg_Score: "
+                                        f"{evaluation['avg_score']}"
+                                    )
+
+            elapsed = time.time() - start_time
+            print(
+                f"{behavior} evaluation time: "
+                f"{elapsed:.2f} seconds\n"
+            )
+
+            if save_dir:
+                filepath = os.path.join(
+                    save_dir,
+                    f"{behavior}_{canonical_alpha}_results",
+                )
+
+                if use_pickle:
+                    with open(f"{filepath}.pkl", "wb") as file:
+                        pickle.dump(experiment_output, file)
+                else:
+                    experiment_output.save_to_json(filepath)
 
     return experiment_output
 
@@ -1535,3 +1970,66 @@ def evaluate_across_alpha_beta_pair(
 
     return experiment_output
 
+def build_canonical_grid(lower=-2.0, upper=2.0, step=0.25):
+    n_steps = round((upper - lower) / step)
+    return [round(lower + i * step, 10) for i in range(n_steps + 1)]
+
+def map_interval_around_zero(values, source_interval, target_interval):
+    """
+    Piecewise-linearly remaps values from source_interval to target_interval,
+    preserving 0 -> 0. Both intervals must straddle zero.
+    """
+    src_min, src_max = source_interval
+    tgt_min, tgt_max = target_interval
+
+    if src_min >= 0 or src_max <= 0:
+        raise ValueError("source_interval must have min < 0 < max.")
+    if tgt_min >= 0 or tgt_max <= 0:
+        raise ValueError("target_interval must have min < 0 < max.")
+
+    def _map_one(val):
+        if not src_min <= val <= src_max:
+            raise ValueError(f"Value {val} outside source_interval {source_interval}.")
+        if val < 0:
+            return (val / src_min) * tgt_min
+        elif val > 0:
+            return (val / src_max) * tgt_max
+        return 0.0
+
+    return {
+        round(float(v), 10): round(float(_map_one(v)), 10)
+        for v in values
+    }
+
+def build_alpha_to_raw_mapping(behavior_intervals_padded, canonical_values, canonical_bound=2.0):
+    """
+    For each behavior, map every canonical value in canonical_values
+    (e.g. -2, -1.75, ..., 2) to its corresponding raw value, using
+    that behavior's padded raw interval as the target range.
+    """
+    canonical_interval = (-canonical_bound, canonical_bound)
+    return {
+        behavior: map_interval_around_zero(canonical_values, canonical_interval, raw_interval)
+        for behavior, raw_interval in behavior_intervals_padded.items()
+    }
+
+def pad_interval_around_zero(raw_interval, target_bound=2.0, source_bound=1.0):
+    """
+    Given a raw (b_min, b_max) interval that piecewise-linearly maps to
+    [-source_bound, source_bound] (with 0 -> 0), return the padded raw
+    interval that maps to [-target_bound, target_bound] under the same
+    per-side slope.
+    """
+    b_min, b_max = raw_interval
+    if b_min >= 0 or b_max <= 0:
+        raise ValueError(f"raw_interval must straddle zero, got {raw_interval}")
+
+    factor = target_bound / source_bound
+    return (b_min * factor, b_max * factor)
+
+
+def pad_behavior_intervals(behavior_intervals, target_bound=2.0, source_bound=1.0):
+    return {
+        behavior: pad_interval_around_zero(interval, target_bound, source_bound)
+        for behavior, interval in behavior_intervals.items()
+    }
